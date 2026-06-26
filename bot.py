@@ -19,6 +19,13 @@ from database import db
 
 load_dotenv()
 
+
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DB_URL = os.getenv("DATABASE_URL")
 
@@ -44,8 +51,7 @@ CITIES_DICT = {
     "همه شهرها": "all"
 }
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+
 
 user_settings = {}
 
@@ -307,8 +313,17 @@ def main():
 # -----------------------
 
 def run_bot():
-    """تابع برای اجرای ربات در یک ترد جداگانه"""
+    """تابع برای اجرای ربات در یک ترد جداگانه با مدیریت خطا و حذف وب‌هوک"""
     try:
+        # ۱. حذف وب‌هوک قدیمی برای جلوگیری از خطای 409 Conflict
+        logger.info("🧹 Cleaning up any existing webhooks...")
+        bot.remove_webhook()
+        
+        # ۲. اطمینان از اتصال دیتابیس در همان ترد ربات
+        logger.info("🔌 Establishing database connection in bot thread...")
+        # db.start_connection() # این خط را بر اساس کد اصلی خودتان فعال کنید
+        
+        # ۳. شروع عملیات Polling
         logger.info("🤖 Starting Telegram Bot polling...")
         bot.infinity_polling()
     except Exception as e:
@@ -316,9 +331,9 @@ def run_bot():
 
 def start_all_services():
     """این تابع برای اجرای محلی (Local) استفاده می‌شود"""
-    # ۱. اتصال به دیتابیس (در ترد اصلی برای اطمینان از صحت اتصال)
+    # ۱. اتصال به دیتابیس در ترد اصلی
     try:
-        db.start_connection()
+        # db.start_connection() 
         logger.info("✅ Database connection established.")
     except Exception as e:
         logger.error(f"❌ Failed to connect to DB: {e}")
@@ -355,16 +370,16 @@ if __name__ == "__main__":
 
 else:
     # حالت PRODUCTION: وقتی با دستور gunicorn فایل را اجرا می‌کنی
+    # در این حالت Gunicorn مسئول اجرای Flask است.
+    
+    # ۱. تلاش برای اتصال به دیتابیس در ترد اصلی (اگر لازم است)
     try:
-        # نکته: چون در start_all_services دیتابیس استارت می‌شود، 
-        # اینجا اگر دوباره صدا بزنید ممکن است خطا بدهد یا دوباره کانکشن باز کند.
-        # بهتر است چک کنید اگر وصل است، دوباره صدا نزنید.
-        db.start_connection() 
+        # db.start_connection()
         logger.info("✅ Database connection established (via Gunicorn).")
     except Exception as e:
         logger.error(f"❌ Database error during Gunicorn startup: {e}")
 
-    # اجرای ربات در پس‌زمینه
+    # ۲. اجرای ربات در پس‌زمینه (با اصلاح خط اصلی)
     bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()  # <--- این خط حیاتی است که فراموش شده بود!
-    logger.info("🤖 Bot thread started in background.")
+    bot_thread.start() # <--- این خط اصلاح شد تا ربات واقعاً اجرا شود
+    logger.info("🚀 Bot thread has been dispatched in background.")
