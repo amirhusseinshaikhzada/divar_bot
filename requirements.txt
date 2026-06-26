@@ -11,3 +11,4 @@ gunicorn
 asyncpg
 beautifulsoup4
 python-dotenv
+pandas
