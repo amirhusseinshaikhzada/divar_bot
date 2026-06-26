@@ -355,12 +355,16 @@ if __name__ == "__main__":
 
 else:
     # حالت PRODUCTION: وقتی با دستور gunicorn فایل را اجرا می‌کنی
-    # در این حالت Gunicorn مسئول اجرای Flask است. ما فقط دیتابیس و ربات را بالا می‌آوریم.
     try:
-        db.start_connection()
+        # نکته: چون در start_all_services دیتابیس استارت می‌شود، 
+        # اینجا اگر دوباره صدا بزنید ممکن است خطا بدهد یا دوباره کانکشن باز کند.
+        # بهتر است چک کنید اگر وصل است، دوباره صدا نزنید.
+        db.start_connection() 
         logger.info("✅ Database connection established (via Gunicorn).")
     except Exception as e:
         logger.error(f"❌ Database error during Gunicorn startup: {e}")
 
     # اجرای ربات در پس‌زمینه
     bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()  # <--- این خط حیاتی است که فراموش شده بود!
+    logger.info("🤖 Bot thread started in background.")
