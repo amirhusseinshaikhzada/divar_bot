@@ -188,8 +188,12 @@ async def scrape_divar_async(query, city_slug):
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.InlineKeyboardMarkup(row_width=2)
+    
+    # ساخت لیست دکمه‌ها
     buttons = [types.InlineKeyboardButton(name, callback_data=f"city_{slug}") for name, slug in CITIES_DICT.items()]
-    markup.add(buttons)
+    
+    # اصلاح اصلی: اضافه کردن علامت * قبل از buttons
+    markup.add(*buttons) 
     
     bot.send_message(
         message.chat.id, 
