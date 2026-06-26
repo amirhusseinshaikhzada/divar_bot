@@ -10,3 +10,4 @@ python-bidi
 gunicorn
 asyncpg
 beautifulsoup4
+python-dotenv
