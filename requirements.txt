@@ -1,9 +1,9 @@
 flask
 pyTelegramBotAPI
-gunicorn
-pandas
+httpx
 numpy
 matplotlib
-scipy
-scikit-learn
-requests
+sqlalchemy
+psycopg2-binary
+arabic-reshaper
+python-bidi
