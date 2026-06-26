@@ -19,6 +19,9 @@ from database import db
 
 load_dotenv()
 
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+DB_URL = os.getenv("DATABASE_URL")
+
 app = Flask(__name__)
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -26,8 +29,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 
 # --- CONFIGURATION ---
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-DB_URL = os.getenv("DATABASE_URL")
+
 
 CITIES_DICT = {
     "تهران": "tehran",
