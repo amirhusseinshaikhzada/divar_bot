@@ -1,0 +1,9 @@
+flask
+pyTelegramBotAPI
+gunicorn
+pandas
+numpy
+matplotlib
+scipy
+scikit-learn
+requests
