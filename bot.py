@@ -228,26 +228,36 @@ def handle_text(message):
         return
 
     city_slug = user_settings[chat_id]
+    # ارسال پیام وضعیت اولیه
     status_msg = bot.reply_to(message, "🔍 در حال جستجو، تحلیل و رسم نمودار... لطفاً صبر کنید.")
 
     def run_search():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        """
+        این تابع در یک ترد (Thread) جداگانه اجرا می‌شود تا باعث بلاک شدن ربات نشود.
+        """
         try:
-            # ۱. اسکرپ کردن
-            ads = loop.run_until_complete(scrape_divar_async(query, city_slug))
+            # ۱. اسکرپ کردن (استفاده از asyncio.run برای اجرای تابع async در ترد معمولی)
+            # این روش امن‌ترین راه برای اجرای یک تابع async در یک Thread معمولی است.
+            ads = asyncio.run(scrape_divar_async(query, city_slug))
             
             if not ads:
                 bot.edit_message_text("❌ هیچ آگهی مرتبطی پیدا نشد.", chat_id, status_msg.message_id)
                 return
 
-            # ۲. محاسبات آماری
+            # ۲. محاسبات آماری (پاکسازی داده‌های پرت با IQR)
             prices = [a['price'] for a in ads]
             arr = np.array(prices)
             q1, q3 = np.percentile(arr, [25, 75])
             iqr = q3 - q1
-            clean_prices = [p for p in prices if (q1 - 1.5 * iqr) <= p <= (q3 + 1.5 * iqr)]
-            if not clean_prices: clean_prices = prices
+            
+            # حذف داده‌های پرت
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+            clean_prices = [p for p in prices if lower_bound <= p <= upper_bound]
+            
+            # اگر به هر دلیلی بعد از حذف داده‌ها لیست خالی شد، از همان قیمت‌های اصلی استفاده کن
+            if not clean_prices: 
+                clean_prices = prices
             
             avg_price = int(np.mean(clean_prices))
             
@@ -280,6 +290,7 @@ def handle_text(message):
                 f"━━━━━━━━━━━━━━━━━━\n"
             )
 
+            # بررسی فرصت طلایی (اگر ارزان‌ترین آگهی کمتر از ۸۵٪ میانگین باشد)
             cheapest_ad = min(ads, key=lambda x: x['price'])
             if cheapest_ad['price'] < (avg_price * 0.85):
                 response += "🔥 **فرصت طلایی خرید!**\nارزان‌ترین آگهی بسیار زیر میانگین است.\n\n"
@@ -289,19 +300,38 @@ def handle_text(message):
             for ad in sorted_ads:
                 response += f"• {ad['title']}\n  `{ad['price']:,}`\n  [لینک آگهی]({ad['url']})\n\n"
 
-            # ۸. ارسال نهایی (ابتدا نمودار، سپس متن)
+            # ۸. ارسال نهایی
+            # ابتدا پیام "در حال جستجو" را پاک می‌کنیم تا پیام جدید جایگزین شود
+            bot.delete_message(chat_id, status_msg.message_id)
+
             if chart_path and os.path.exists(chart_path):
                 with open(chart_path, 'rb') as photo:
-                    bot.send_photo(chat_id, photo, caption=response, parse_mode="Markdown", disable_web_page_preview=True)
-                os.remove(chart_path) # پاکسازی فایل
+                    bot.send_photo(
+                        chat_id, 
+                        photo, 
+                        caption=response, 
+                        parse_mode="Markdown", 
+                        disable_web_page_preview=True
+                    )
+                # پاکسازی فایل نمودار پس از ارسال موفق
+                try:
+                    os.remove(chart_path)
+                except Exception as e:
+                    logger.error(f"Error deleting chart: {e}")
             else:
-                bot.edit_message_text(response, chat_id, status_msg.message_id, parse_mode="Markdown", disable_web_page_preview=True)
+                # اگر نموداری ساخته نشد، فقط متن را بفرست
+                bot.send_message(chat_id, response, parse_mode="Markdown", disable_web_page_preview=True)
 
         except Exception as e:
-            logger.exception(e)
-            bot.edit_message_text("⚠️ خطایی در تحلیل رخ داد.", chat_id, status_msg.message_id)
+            logger.exception(f"Error in run_search: {e}")
+            # در صورت بروز خطا، به کاربر اطلاع داده شود
+            try:
+                bot.send_message(chat_id, "⚠️ متأسفانه خطایی در فرآیند تحلیل رخ داد. لطفاً دوباره تلاش کنید.")
+            except:
+                pass
 
-    threading.Thread(target=run_search).start()
+    # اجرای تابع در یک ترد جداگانه برای جلوگیری از قفل شدن ربات
+    threading.Thread(target=run_search, daemon=True).start()
 
 # -----------------------
 # MAIN
