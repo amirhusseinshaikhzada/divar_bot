@@ -9,3 +9,4 @@ arabic-reshaper
 python-bidi
 gunicorn
 asyncpg
+beautifulsoup4
