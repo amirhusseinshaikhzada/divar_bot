@@ -47,6 +47,8 @@ CITIES_DICT = {
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+user_settings = {}
+
 # -----------------------
 # DATABASE LAYER
 # -----------------------
@@ -177,13 +179,11 @@ async def scrape_divar_async(query, city_slug):
 
 
 
-user_settings = {}
-
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.InlineKeyboardMarkup(row_width=2)
     buttons = [types.InlineKeyboardButton(name, callback_data=f"city_{slug}") for name, slug in CITIES_DICT.items()]
-    markup.add(*buttons)
+    markup.add(buttons)
     
     bot.send_message(
         message.chat.id, 
