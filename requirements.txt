@@ -8,3 +8,4 @@ psycopg2-binary
 arabic-reshaper
 python-bidi
 gunicorn
+asyncpg
