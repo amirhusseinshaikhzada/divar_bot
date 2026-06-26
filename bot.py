@@ -13,10 +13,17 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import telebot
 from telebot import types
+from database import db
 
 
 
 load_dotenv()
+
+app = Flask(__name__)
+bot = telebot.TeleBot(BOT_TOKEN)
+
+
+
 
 # --- CONFIGURATION ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -167,8 +174,7 @@ async def scrape_divar_async(query, city_slug):
 # -----------------------
 
 
-app = Flask(__name__)
-bot = telebot.TeleBot(BOT_TOKEN)
+
 user_settings = {}
 
 @bot.message_handler(commands=['start'])
@@ -294,28 +300,33 @@ def main():
     print("🚀 Bot is running with Chart & DB Support...")
     bot.infinity_polling()
 
+# -----------------------
+# CORE FUNCTIONS
+# -----------------------
+
 def run_bot():
     """تابع برای اجرای ربات در یک ترد جداگانه"""
-    logger.info("🤖 Starting Telegram Bot polling...")
-    bot.infinity_polling()
+    try:
+        logger.info("🤖 Starting Telegram Bot polling...")
+        bot.infinity_polling()
+    except Exception as e:
+        logger.error(f"❌ Bot polling error: {e}")
 
 def start_all_services():
-    """این تابع قلب تپنده برنامه شماست که همه چیز را همزمان راه می‌اندازد"""
-    
-    # ۱. استارت زدن دیتابیس (بسیار حیاتی)
+    """این تابع برای اجرای محلی (Local) استفاده می‌شود"""
+    # ۱. اتصال به دیتابیس (در ترد اصلی برای اطمینان از صحت اتصال)
     try:
         db.start_connection()
         logger.info("✅ Database connection established.")
     except Exception as e:
         logger.error(f"❌ Failed to connect to DB: {e}")
-        # اگر دیتابیس وصل نشود، ادامه دادن ربات بی فایده است
         return 
 
     # ۲. استارت زدن ربات در یک ترد جداگانه
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     
-    # ۳. اجرای Flask در ترد اصلی (برای پاسخ به /health هاست)
+    # ۳. اجرای Flask در ترد اصلی
     port = int(os.environ.get("PORT", 5000))
     logger.info(f"🌐 Starting Flask server on port {port}...")
     app.run(host='0.0.0.0', port=port)
@@ -337,18 +348,17 @@ def health_check():
 # -----------------------
 
 if __name__ == "__main__":
-    # اگر با python فایل را اجرا کنید
+    # حالت LOCAL: وقتی با دستور python bot.py اجرا می‌کنی
     start_all_services()
+
 else:
-    # این بخش برای زمانی است که GUNICORN فایل را لود می‌کند
-    # چون Gunicorn تابع main را اجرا نمی‌کند، ما باید دستورات لازم را مستقیم اینجا بنویسیم
+    # حالت PRODUCTION: وقتی با دستور gunicorn فایل را اجرا می‌کنی
+    # در این حالت Gunicorn مسئول اجرای Flask است. ما فقط دیتابیس و ربات را بالا می‌آوریم.
     try:
         db.start_connection()
         logger.info("✅ Database connection established (via Gunicorn).")
     except Exception as e:
-        logger.error(f"❌ Database error: {e}")
+        logger.error(f"❌ Database error during Gunicorn startup: {e}")
 
-    # نکته: Gunicorn خودش Flask را اجرا می‌کند، پس نیازی به صدا زدن start_all_services اینجا نیست.
-    # اما برای اینکه ربات هم بالا بیاید، باید آن را در یک ترد در همین سطح اجرا کنیم:
+    # اجرای ربات در پس‌زمینه
     bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
